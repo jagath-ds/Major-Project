@@ -27,10 +27,14 @@ try {
    const firstname = nameParts[0];
    const lastname = nameParts.slice(1).join(" ") || "User";
 
-   const data = await registerUser(firstname, lastname, email, password);
+   const data = await registerUser({firstname, lastname, email, password});
 
    if (data.detail) {
-     setError(data.detail);
+     if (typeof data.detail === "string") {
+       setError(data.detail);
+     } else {
+       setError(data.detail.msg || JSON.stringify(data.detail));
+     }
      return;
    }
 

@@ -26,7 +26,12 @@ import {
   CheckCheck,
   FileIcon,
 } from "lucide-react";
-
+import {
+  StrokxLogoFull,
+  StrokxAvatar,
+  StrokxHeroIcon,
+  StrokxEmblem,
+} from "../components/StrokxLogo";
 // ---------------------------------------------------------------------------
 // Premium Markdown Wrapper
 // ---------------------------------------------------------------------------
@@ -351,15 +356,8 @@ export default function Dashboard() {
         ${isSidebarOpen ? "w-64" : "w-0 border-none"} overflow-hidden whitespace-nowrap
       `}
       >
-        <div className="p-5 flex items-center gap-3 mb-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-bold text-white text-lg shadow-sm">
-            S
-          </div>
-          <span
-            className={`font-bold tracking-tight text-lg ${isDark ? "text-gray-100" : "text-gray-900"}`}
-          >
-            Strokx
-          </span>
+        <div className="p-5 mb-2">
+          <StrokxLogoFull isDark={isDark} />
         </div>
 
         <button
@@ -540,13 +538,8 @@ export default function Dashboard() {
           {messages.length === 0 ? (
             /* Premium Welcome Screen */
             <div className="h-full flex flex-col items-center justify-center -mt-12 animate-in fade-in duration-700">
-              <div className="relative mb-8">
-                {isDark && (
-                  <div className="absolute inset-0 blur-[80px] opacity-30 rounded-full w-40 h-40 mx-auto bg-indigo-500" />
-                )}
-                <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xl">
-                  <Sparkles size={32} />
-                </div>
+              <div className="mb-8">
+                <StrokxHeroIcon isDark={isDark} />
               </div>
               <h2
                 className={`text-3xl font-bold tracking-tight mb-3 ${isDark ? "text-white" : "text-gray-900"}`}
@@ -589,13 +582,8 @@ export default function Dashboard() {
                 >
                   {/* AI Avatar */}
                   {msg.role === "ai" && (
-                    <div className="relative mt-1 shrink-0 h-8">
-                      {isDark && (
-                        <div className="absolute inset-0 blur-lg bg-indigo-500 opacity-40 rounded-full"></div>
-                      )}
-                      <div className="relative w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
-                        <Sparkles size={14} />
-                      </div>
+                    <div className="mt-1">
+                      <StrokxAvatar isDark={isDark} />
                     </div>
                   )}
 
@@ -686,13 +674,8 @@ export default function Dashboard() {
               {/* Typing Indicator */}
               {isTyping && (
                 <div className="flex gap-4 justify-start fade-up">
-                  <div className="relative mt-1 shrink-0 h-8">
-                    {isDark && (
-                      <div className="absolute inset-0 blur-lg bg-indigo-500 opacity-40 rounded-full"></div>
-                    )}
-                    <div className="relative w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
-                      <Sparkles size={14} />
-                    </div>
+                  <div className="mt-1">
+                    <StrokxAvatar isDark={isDark} />
                   </div>
                   <div className="flex items-center h-10 px-4">
                     <div className="flex gap-1.5 items-center">
@@ -828,10 +811,6 @@ export default function Dashboard() {
                         : "bg-white border-gray-200 text-gray-500 hover:text-gray-700 shadow-sm"
                     }`}
                   >
-                    <Sparkles
-                      size={12}
-                      className={isDark ? "text-indigo-400" : "text-indigo-500"}
-                    />
                     {currentModel}
                     <ChevronDown
                       size={12}

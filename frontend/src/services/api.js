@@ -21,14 +21,18 @@ export const queryAI = async (question, modelMode = "auto") => {
 };
 
 export const uploadDocuments = async (files) => {
-    for (let file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        await fetch(`${BASE_URL}/api/documents/upload`, {
-            method: "POST",
-            body: formData,
-        });
+  for (let file of files) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${BASE_URL}/api/documents/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.detail || "Upload failed");
     }
+  }
 };
 
 export const getDocuments = async () => {

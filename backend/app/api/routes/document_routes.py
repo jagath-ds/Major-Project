@@ -26,7 +26,13 @@ def upload_file(
     try:
         if not file.filename:
             raise HTTPException(status_code=400, detail="invalid filename")
-
+          # ── Duplicate check ──
+        existing = db.query(Document).filter(Document.file_name == file.filename).first()
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=f"File '{file.filename}' already exists"
+            )
         blob_name = azure_service.upload_file(file)
 
         new_doc = Document(

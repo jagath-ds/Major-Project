@@ -12,6 +12,7 @@ import {
   registerUser,
   getLogs,
 } from "../services/api";
+import { StrokxLogoFull } from "../components/StrokxLogo";
 
 // ─── Toast Component ─────────────────────────────────────────────────────────
 function Toast({ toasts, removeToast }) {
@@ -108,7 +109,7 @@ function ActionBadge({ action }) {
   const classes = map[action] || "bg-slate-100 text-slate-700";
   return (
     <span
-      className={`px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wider ${classes}`}
+      className={`px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide whitespace-nowrap ${classes}`}
     >
       {action}
     </span>
@@ -136,7 +137,7 @@ export default function AdminPortal() {
   const [userSearch, setUserSearch] = useState("");
   const [addingUser, setAddingUser] = useState(false);
   const toastId = useRef(0);
-
+  const [duplicateFile, setDuplicateFile] = useState(null);
   const addToast = (message, type = "success") => {
     const id = ++toastId.current;
     setToasts((p) => [...p, { id, message, type }]);
@@ -189,19 +190,46 @@ export default function AdminPortal() {
   };
 
   const handleUpload = async () => {
-    if (files.length === 0) return;
-    setUploading(true);
-    try {
-      await uploadDocuments(files);
-      await fetchDocs();
-      await fetchLogs();
-      setFiles([]);
-      addToast(`${files.length} document(s) uploaded successfully`);
-    } catch {
+  if (files.length === 0) return;
+  setUploading(true);
+  try {
+    await uploadDocuments(files);
+    await fetchDocs();
+    await fetchLogs();
+    setFiles([]);
+    addToast(`${files.length} document(s) uploaded successfully`);
+  } catch (err) {
+    const msg = err.message || "";
+    if (msg.includes("already exists")) {
+      // Extract filename from error message
+      const match = msg.match(/'(.+?)'/);
+      const conflictName = match ? match[1] : files[0].name;
+      setDuplicateFile({ file: files[0], name: conflictName });
+    } else {
       addToast("Upload failed. Please try again.", "error");
     }
-    setUploading(false);
-  };
+  }
+  setUploading(false);
+};
+
+const handleOverwrite = async () => {
+  if (!duplicateFile) return;
+  setUploading(true);
+  try {
+    // Delete the existing doc first, then re-upload
+    const existing = documents.find((d) => d.name === duplicateFile.name);
+    if (existing) await deleteDocument(existing.id);
+    await uploadDocuments([duplicateFile.file]);
+    await fetchDocs();
+    await fetchLogs();
+    setFiles([]);
+    addToast(`"${duplicateFile.name}" overwritten successfully`);
+  } catch {
+    addToast("Overwrite failed. Please try again.", "error");
+  }
+  setDuplicateFile(null);
+  setUploading(false);
+};
 
   const handleDelete = (id, name) => {
     askConfirm(
@@ -379,10 +407,8 @@ export default function AdminPortal() {
         <aside className="w-60 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.15)]">
           {/* Logo */}
           <div className="pt-7 pb-5 px-6 border-b border-white/5">
-            <div className="text-lg font-bold text-white tracking-tight">
-              Admin Panel
-            </div>
-            <div className="text-xs text-slate-400 mt-1 font-medium">
+            <StrokxLogoFull isDark={true} />
+            <div className="text-xs text-slate-400 mt-3 font-medium">
               {localStorage.getItem("user_name") || "Admin User"}
             </div>
             <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-green-500/15 border border-green-500/25">
@@ -755,7 +781,7 @@ export default function AdminPortal() {
                   filteredLogs.map((log, i) => (
                     <div
                       key={log.id}
-                      className={`grid grid-cols-[160px_90px_1fr_90px] px-5 py-3.5 items-center gap-3 transition-colors hover:bg-slate-50 ${i < filteredLogs.length - 1 ? "border-b border-slate-50" : ""}`}
+                      className={`grid grid-cols-[140px_auto_1fr_90px] px-5 py-3.5 items-center gap-3 transition-colors hover:bg-slate-50 ${i < filteredLogs.length - 1 ? "border-b border-slate-50" : ""}`}
                     >
                       <span className="text-[11px] font-mono text-slate-400">
                         {log.time?.replace("T", " ").slice(0, 19)}
@@ -850,6 +876,41 @@ export default function AdminPortal() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── Duplicate File Modal ── */}
+      {duplicateFile && (
+        <div className="fixed inset-0 bg-black/40 z-[7000] flex items-center justify-center">
+          <div className="bg-white rounded-[18px] p-8 w-[420px] shadow-2xl animate-[fadeUp_0.25s_ease]">
+            <div className="text-3xl mb-4 text-center">⚠️</div>
+            <h2 className="text-lg font-bold text-slate-900 mb-2 text-center">
+              File Already Exists
+            </h2>
+            <p className="text-sm text-slate-500 text-center mb-6 leading-relaxed">
+              <span className="font-semibold text-slate-700">
+                "{duplicateFile.name}"
+              </span>{" "}
+              is already indexed. Overwrite it or cancel?
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => {
+                  setDuplicateFile(null);
+                  setFiles([]);
+                }}
+                className="flex-1 py-2.5 rounded-xl border-[1.5px] border-slate-200 bg-white cursor-pointer text-sm text-slate-500 font-medium hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOverwrite}
+                disabled={uploading}
+                className="flex-1 py-2.5 rounded-xl border-none bg-red-500 text-white cursor-pointer text-sm font-semibold hover:bg-red-600 transition-all shadow-sm disabled:opacity-70"
+              >
+                {uploading ? "Overwriting..." : "⚠ Overwrite"}
+              </button>
+            </div>
           </div>
         </div>
       )}
