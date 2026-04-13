@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import List, Optional, Dict
 
@@ -37,13 +38,14 @@ class PipelineConfig:
     collection_name:      str   = "enterprise_rag"
 
     # Retrieval
-    # fast model uses retrieval_top_k_fast, deep model uses retrieval_top_k_deep
-    # caller's explicit top_k argument always overrides both
-    retrieval_top_k_fast: int   = 3
+    # fast model: more chunks (5) but stricter relevance filter → higher precision
+    # deep model: even more chunks for broad coverage
+    retrieval_top_k_fast: int   = 5     # raised from 3 → better recall before MMR filters
     retrieval_top_k_deep: int   = 6
     retrieval_fetch_k:    int   = 25
-    min_relevance_score:  float = 0.30
-    mmr_lambda:           float = 0.6
+    min_relevance_score:  float = 0.45  # raised from 0.30 → filters noise chunks
+    mmr_lambda_fast:      float = 0.80  # NEW: relevance-first for fast path
+    mmr_lambda_deep:      float = 0.60  # original balanced value for deep path
 
     # LLM
     fast_model:           str   = "phi3:mini"
@@ -76,8 +78,10 @@ class RAGPipeline:
         store:                VectorStore,
         retriever:            RetrievalEngine,
         llm:                  LLMOrchestrator,
-        retrieval_top_k_fast: int = 3,
-        retrieval_top_k_deep: int = 6,
+        retrieval_top_k_fast: int   = 5,
+        retrieval_top_k_deep: int   = 6,
+        mmr_lambda_fast:      float = 0.80,
+        mmr_lambda_deep:      float = 0.60,
     ):
         self.chunker              = chunker
         self.embedder             = embedder
@@ -86,9 +90,33 @@ class RAGPipeline:
         self.llm                  = llm
         self.retrieval_top_k_fast = retrieval_top_k_fast
         self.retrieval_top_k_deep = retrieval_top_k_deep
+        self.mmr_lambda_fast      = mmr_lambda_fast
+        self.mmr_lambda_deep      = mmr_lambda_deep
         logger.info("RAGPipeline initialised.")
 
     # ── Factory ───────────────────────────────────────────────────────────
+    @staticmethod
+    def _is_short_query(question: str) -> bool:
+        words = question.strip().split()
+        return 1 <= len(words) <= 3
+
+    @staticmethod
+    def _extract_query_terms(question: str) -> List[str]:
+        terms = re.findall(r"[a-zA-Z0-9_]+", question.lower())
+        stopwords = {"what", "is", "the", "a", "an", "who", "how"}
+        return [term for term in terms if term not in stopwords]
+
+    @staticmethod
+    def _retrieved_chunks_contain_terms(chunks, query_terms: List[str]) -> bool:
+        if not query_terms:
+            return False
+
+        for chunk in chunks:
+            text = chunk.text.lower()
+            if any(term in text for term in query_terms):
+                return True
+
+        return False
 
     @classmethod
     def from_config(cls, cfg: Optional[PipelineConfig] = None) -> "RAGPipeline":
@@ -107,11 +135,10 @@ class RAGPipeline:
             batch_size = cfg.embedding_batch_size,
             cache      = cfg.embedding_cache,
         )
-        # ✅ Fixed
         if cfg.vector_backend == "faiss":
             store = build_vector_store(
                 backend    = "faiss",
-                index_path = cfg.vector_persist_dir,  # FAISS expects index_path not persist_dir
+                index_path = cfg.vector_persist_dir,
             )
         elif cfg.vector_backend == "chroma":
             store = build_vector_store(
@@ -121,13 +148,14 @@ class RAGPipeline:
             )
         else:
             raise ValueError(f"Unknown vector backend: {cfg.vector_backend!r}")
+
         retriever = RetrievalEngine(
             embedding_engine = embedder,
             vector_store     = store,
             top_k            = cfg.retrieval_top_k_deep,   # default; overridden per query
             fetch_k          = cfg.retrieval_fetch_k,
             min_score        = cfg.min_relevance_score,
-            mmr_lambda       = cfg.mmr_lambda,
+            mmr_lambda       = cfg.mmr_lambda_deep,
         )
         llm = LLMOrchestrator(
             fast_model  = cfg.fast_model,
@@ -145,6 +173,8 @@ class RAGPipeline:
             llm,
             retrieval_top_k_fast = cfg.retrieval_top_k_fast,
             retrieval_top_k_deep = cfg.retrieval_top_k_deep,
+            mmr_lambda_fast      = cfg.mmr_lambda_fast,
+            mmr_lambda_deep      = cfg.mmr_lambda_deep,
         )
 
     # ── Indexing ──────────────────────────────────────────────────────────
@@ -216,13 +246,15 @@ class RAGPipeline:
     ) -> LLMResponse:
         """
         Full RAG query pipeline:
-          question → select model → retrieve context → LLM → LLMResponse
+          question → select model → [rewrite query for fast path]
+                   → retrieve context → LLM → LLMResponse
 
-        Model selection happens ONCE here.
-        Retrieval depth scales automatically with model:
-          fast → retrieval_top_k_fast (default 3)
-          deep → retrieval_top_k_deep (default 6)
-        Caller's explicit top_k always overrides both.
+        Fast path improvements vs original:
+          - Query rewriting: short/vague queries are expanded before embedding
+          - Higher retrieval top_k (5 vs 3): more candidates for MMR to filter
+          - Relevance-first MMR (λ=0.80 vs 0.60): picks the most on-topic chunks
+          - Stricter score threshold (0.45 vs 0.30): noise chunks are rejected
+          - Tighter grounding prompt with per-bullet relevance check instruction
         """
         logger.info(f"Query: {question!r}  |  mode={model_mode!r}")
 
@@ -230,28 +262,77 @@ class RAGPipeline:
         self.llm.select_model(question, model_mode)
         logger.info(f"  → Active model: {self.llm.model!r}")
 
-        # 2. Resolve retrieval depth
+        is_fast = (self.llm.model == self.llm.fast_model)
+
+        # 2. For the fast path, rewrite short/ambiguous queries to improve
+        #    embedding recall before retrieval.
+        retrieval_query = question
+        if is_fast:
+            retrieval_query = self.llm._rewrite_query_for_retrieval(question)
+            if retrieval_query != question:
+                logger.info(f"  → Query rewritten for retrieval: {retrieval_query!r}")
+
+        # 3. Resolve retrieval depth and MMR lambda
         if top_k is not None:
             effective_top_k = top_k
-        elif self.llm.model == self.llm.fast_model:
+        elif is_fast:
             effective_top_k = self.retrieval_top_k_fast
         else:
             effective_top_k = self.retrieval_top_k_deep
 
-        logger.info(f"  → Retrieval top_k: {effective_top_k}")
+        effective_mmr = self.mmr_lambda_fast if is_fast else self.mmr_lambda_deep
+        logger.info(
+            f"  → Retrieval top_k={effective_top_k}  mmr_lambda={effective_mmr}"
+        )
 
-        # 3. Retrieve context
-        context = self.retriever.retrieve(
-            query         = question,
+        # 4. Retrieve context (rewritten query used for embedding; original
+        #    question is preserved in the RetrievedContext for the LLM prompt)
+        raw_context = self.retriever.retrieve(
+            query         = retrieval_query,
             top_k         = effective_top_k,
             filter_doc_id = filter_doc_id,
+            mmr_lambda    = effective_mmr,
         )
+        
+        if self._is_short_query(question):
+            query_terms = self._extract_query_terms(question)
+            has_exact_support = self._retrieved_chunks_contain_terms(
+                raw_context.chunks,
+                query_terms,
+            )
+
+            if not has_exact_support:
+                logger.info(
+                    "Short query failed exact-term validation. Returning fallback-safe empty context."
+                )
+                from rag_engine.rag_pipeline.retrieval.retrieval_engine import RetrievedContext
+                raw_context = RetrievedContext(
+                    query        = retrieval_query,
+                    chunks       = [],
+                    context_text = "",
+                    sources      = [],
+                    total_tokens = 0,
+                    strategy_used= "short_query_exact_match_failed",
+                )
+
+        # Restore the user's original question in the context object so the
+        # LLM prompt shows what the user actually asked (not the rewritten form)
+        from rag_engine.rag_pipeline.retrieval.retrieval_engine import RetrievedContext
+        context = RetrievedContext(
+            query        = question,        # original question for the prompt
+            chunks       = raw_context.chunks,
+            context_text = raw_context.context_text,
+            sources      = raw_context.sources,
+            total_tokens = raw_context.total_tokens,
+            strategy_used= raw_context.strategy_used,
+        )
+
         logger.info(
             f"  → Retrieved {len(context.chunks)} chunks "
             f"(~{context.total_tokens} tokens)"
         )
 
-        # 4. Generate answer (metadata cleaning happens inside orchestrator)
+        # 5. Generate answer
         response = self.llm.answer(context)
         logger.info(
             f"  → {'Grounded' if response.is_grounded else 'FALLBACK'} answer | "
@@ -271,4 +352,6 @@ class RAGPipeline:
             "deep_model":            self.llm.deep_model,
             "retrieval_top_k_fast":  self.retrieval_top_k_fast,
             "retrieval_top_k_deep":  self.retrieval_top_k_deep,
+            "mmr_lambda_fast":       self.mmr_lambda_fast,
+            "mmr_lambda_deep":       self.mmr_lambda_deep,
         }

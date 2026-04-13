@@ -1,15 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.db.models import Employees, Admin, SystemLog
-from app.auth.auth_utils import hash_password, verify_password, create_access_token
-from pydantic import BaseModel
+from app.db.models import Employees, SystemLog
+from app.auth.auth_utils import get_current_user
 
 from app.utils.logger import log_event
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _require_admin(current_user: dict) -> int:
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can access this resource.")
+    return int(current_user["user_id"])
+
+
 @router.get("/employees")
-def get_all_employees(db: Session = Depends(get_db)):
+def get_all_employees(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
     users = db.query(Employees).all()
 
     return [
@@ -22,7 +33,13 @@ def get_all_employees(db: Session = Depends(get_db)):
         for user in users
     ]
 @router.patch("/employees/{emp_id}/status")
-def update_status(emp_id: int, status: str, db: Session = Depends(get_db)):
+def update_status(
+    emp_id: int,
+    status: str,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    admin_id = _require_admin(current_user)
     user = db.get(Employees, emp_id)
 
     if not user:
@@ -31,10 +48,23 @@ def update_status(emp_id: int, status: str, db: Session = Depends(get_db)):
     user.status = status
     db.commit()
 
+    log_event(
+        db,
+        actor_type="admin",
+        actor_id=admin_id,
+        action_type="UPDATE_USER_STATUS",
+        description=f"Updated status for {user.email} to {status}"
+    )
+
     return {"message": "Status updated"}
 
 @router.delete("/employees/{emp_id}")
-def delete_employee(emp_id: int, db: Session = Depends(get_db)):
+def delete_employee(
+    emp_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    admin_id = _require_admin(current_user)
     user = db.get(Employees, emp_id)
 
     if not user:
@@ -42,7 +72,7 @@ def delete_employee(emp_id: int, db: Session = Depends(get_db)):
     log_event(
     db,
     actor_type="admin",
-    actor_id=1,
+    actor_id=admin_id,
     action_type="DELETE_USER",
     description=f"Deleted user {user.email}"
 )
@@ -53,7 +83,11 @@ def delete_employee(emp_id: int, db: Session = Depends(get_db)):
     return {"message": "User deleted"}
 
 @router.get("/logs")
-def get_logs(db: Session = Depends(get_db)):
+def get_logs(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
     logs = db.query(SystemLog).order_by(SystemLog.timestamp.desc()).all()
 
     return [

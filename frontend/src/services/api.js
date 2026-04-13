@@ -1,11 +1,16 @@
 
 const BASE_URL = 'http://localhost:8000';
 
+const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+});
+
 export const queryAI = async (question, modelMode = "auto") => {
     try {
         const response = await fetch(`${BASE_URL}/api/query/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 question,
                 model_mode: modelMode   // ⭐ IMPORTANT
@@ -26,6 +31,9 @@ export const uploadDocuments = async (files) => {
     formData.append("file", file);
     const res = await fetch(`${BASE_URL}/api/documents/upload`, {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
       body: formData,
     });
     if (!res.ok) {
@@ -36,19 +44,29 @@ export const uploadDocuments = async (files) => {
 };
 
 export const getDocuments = async () => {
-    const res = await fetch(`${BASE_URL}/api/documents/`);
+    const res = await fetch(`${BASE_URL}/api/documents/`, {
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+    });
     return await res.json();
 };
 
 export const deleteDocument = async (id) => {
-    await fetch(`${BASE_URL}/api/documents/${id}`, { method: "DELETE" });
+    await fetch(`${BASE_URL}/api/documents/${id}`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+    });
 };
 
 export const reindexDocument = async (id) => {
     const res = await fetch(`${BASE_URL}/api/documents/${id}/index?force=true`, { 
         method: "POST",
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({}) 
     });
@@ -132,11 +150,62 @@ export const getLogs = async () => {
 export const changePassword = async (newPassword) => {
     const res = await fetch(`${BASE_URL}/auth/change-password`, {
         method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ new_password: newPassword }),
     });
+    return res.json();
+};
+
+export const createChatSession = async (title = "New Chat") => {
+    const res = await fetch(`${BASE_URL}/api/chat/sessions`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ title }),
+    });
+    if (!res.ok) throw new Error("Failed to create chat session");
+    return res.json();
+};
+
+export const getChatSessions = async () => {
+    const res = await fetch(`${BASE_URL}/api/chat/sessions`, {
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+    });
+    if (!res.ok) throw new Error("Failed to fetch chat sessions");
+    return res.json();
+};
+
+export const getChatMessages = async (sessionId) => {
+    const res = await fetch(`${BASE_URL}/api/chat/sessions/${sessionId}/messages`, {
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+    });
+    if (!res.ok) throw new Error("Failed to fetch chat messages");
+    return res.json();
+};
+
+export const sendChatMessage = async (sessionId, question, modelMode = "auto") => {
+    const res = await fetch(`${BASE_URL}/api/chat/sessions/${sessionId}/messages`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+            question,
+            model_mode: modelMode,
+        }),
+    });
+    if (!res.ok) throw new Error("Failed to send chat message");
+    return res.json();
+};
+
+export const deleteChatSession = async (sessionId) => {
+    const res = await fetch(`${BASE_URL}/api/chat/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+    });
+    if (!res.ok) throw new Error("Failed to delete chat session");
     return res.json();
 };

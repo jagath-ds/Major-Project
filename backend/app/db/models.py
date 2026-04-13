@@ -1,7 +1,7 @@
 from .database import Base
-from sqlalchemy import  Integer, String, Text,func,DateTime
+from sqlalchemy import  Integer, String, Text,func,DateTime,ForeignKey,Boolean,JSON
 from sqlalchemy.dialects.postgresql import UUID,INET
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column,relationship
 from datetime import datetime
 from typing import Optional
 import uuid
@@ -52,3 +52,27 @@ class SystemLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True),server_default=func.now())
     ip_address = mapped_column(INET, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=True)
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.emp_id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    is_archived: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("chat_sessions.session_id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    sources_json: Mapped[Optional[list[dict]]] = mapped_column(JSON, nullable=True)
+    model_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    grounded: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -1,0 +1,737 @@
+[1mdiff --git a/README.md b/README.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..18a3cdd[m
+[1m--- /dev/null[m
+[1m+++ b/README.md[m
+[36m@@ -0,0 +1,216 @@[m
+[32m+[m[32m# 🤖 Enterprise GenAI Knowledge Assistant[m
+[32m+[m
+[32m+[m[32m> A production-grade **Retrieval-Augmented Generation (RAG)** system that lets organizations query internal documents using natural language — with zero hallucination and enterprise-level security.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 📌 Overview[m
+[32m+[m
+[32m+[m[32mThe Enterprise GenAI Knowledge Assistant transforms unstructured enterprise documents into a conversational AI interface. Built on RAG architecture, it ensures every response is **grounded in your actual documents** — not model hallucinations.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## ❗ Problem Statement[m
+[32m+[m
+[32m+[m[32mOrganizations struggle with knowledge retrieval because:[m
+[32m+[m
+[32m+[m[32m- Information is scattered across hundreds of documents[m
+[32m+[m[32m- Traditional keyword search lacks semantic understanding[m
+[32m+[m[32m- Public AI tools risk data leakage[m
+[32m+[m[32m- General-purpose LLMs hallucinate facts not present in source material[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 💡 Solution[m
+[32m+[m
+[32m+[m[32mThis system implements a full RAG pipeline:[m
+[32m+[m
+[32m+[m[32m1. Ingests enterprise documents (PDF, DOCX, HTML, TXT)[m
+[32m+[m[32m2. Extracts and chunks text intelligently[m
+[32m+[m[32m3. Generates semantic embeddings[m
+[32m+[m[32m4. Stores and indexes them in a vector database[m
+[32m+[m[32m5. On query — retrieves the most relevant chunks[m
+[32m+[m[32m6. Feeds context to an LLM to generate a grounded answer[m
+[32m+[m
+[32m+[m[32mResponses are **strictly derived from your uploaded documents**.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 🏗️ Architecture[m
+[32m+[m
+[32m+[m[32m```[m
+[32m+[m[32mDocument Upload → Text Extraction → Chunking → Embedding Generation[m
+[32m+[m[32m                                                        ↓[m
+[32m+[m[32m                                              Vector Database (FAISS / ChromaDB)[m
+[32m+[m[32m                                                        ↓[m
+[32m+[m[32mUser Query → Semantic Retrieval (Top-K) → LLM (Mistral / Phi3:mini) → Grounded Answer[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 🧠 Key Features[m
+[32m+[m
+[32m+[m[32m- ✅ Retrieval-Augmented Generation (RAG)[m
+[32m+[m[32m- ✅ Semantic search using dense embeddings[m
+[32m+[m[32m- ✅ Context-aware, source-grounded answers[m
+[32m+[m[32m- ✅ Hallucination control[m
+[32m+[m[32m- ✅ Chat-based UI[m
+[32m+[m[32m- ✅ Scalable and modular architecture[m
+[32m+[m[32m- ✅ Enterprise data stays local / private[m
+[32m+[m[32m- ✅ Runs fully offline using Ollama[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 🛠️ Tech Stack[m
+[32m+[m
+[32m+[m[32m| Layer | Technology |[m
+[32m+[m[32m|---|---|[m
+[32m+[m[32m| Frontend | React.js, Tailwind CSS |[m
+[32m+[m[32m| Backend | Python, FastAPI |[m
+[32m+[m[32m| Embeddings | BGE |[m
+[32m+[m[32m| LLMs | Mistral, Phi3:mini (via Ollama) |[m
+[32m+[m[32m| Vector DB | FAISS, ChromaDB |[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 📂 Supported Document Types[m
+[32m+[m
+[32m+[m[32m- PDF (`.pdf`)[m
+[32m+[m[32m- Word Documents (`.docx`)[m
+[32m+[m[32m- HTML (`.html`)[m
+[32m+[m[32m- Plain Text (`.txt`)[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## ⚙️ Getting Started[m
+[32m+[m
+[32m+[m[32m### Prerequisites[m
+[32m+[m
+[32m+[m[32m- Python 3.9+[m
+[32m+[m[32m- Node.js 18+[m
+[32m+[m[32m- [Ollama](https://ollama.com) — for running LLMs locally[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### Step 1: Install Ollama & Pull Models[m
+[32m+[m
+[32m+[m[32mDownload and install Ollama from [https://ollama.com/download](https://ollama.com/download), then pull the required models:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mollama pull mistral[m
+[32m+[m[32mollama pull phi3:mini[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m> ⚠️ **Important:** You must start the Ollama server before running the project.[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mollama serve[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mKeep this running in a terminal throughout your session.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### Step 2: Clone the Repository[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mgit clone <repo url>[m
+[32m+[m[32mcd Enterprise-GenAI-Knowledge-Assistant[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### Step 3: Backend Setup[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mcd backend[m
+[32m+[m
+[32m+[m[32m# Create and activate a virtual environment[m
+[32m+[m[32mpython -m venv venv[m
+[32m+[m
+[32m+[m[32m# On Windows[m
+[32m+[m[32mvenv\Scripts\activate[m
+[32m+[m
+[32m+[m[32m# On macOS/Linux[m
+[32m+[m[32msource venv/bin/activate[m
+[32m+[m
+[32m+[m[32m# Install dependencies[m
+[32m+[m[32mpip install -r requirements.txt[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### Step 4: Frontend Setup[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mcd frontend[m
+[32m+[m[32mnpm install[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## ▶️ Running the Application[m
+[32m+[m
+[32m+[m[32mMake sure `ollama serve` is running first, then:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32m# Terminal 1 — Start the backend[m
+[32m+[m[32mcd backend[m
+[32m+[m[32muvicorn app.main:app --reload[m
+[32m+[m
+[32m+[m[32m# Terminal 2 — Start the frontend[m
+[32m+[m[32mcd frontend[m
+[32m+[m[32mnpm run dev[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe app will be available at `http://localhost:5173` (or as shown in your terminal).[m[41m  [m
+[32m+[m[32mBackend API docs are available at `http://localhost:8000/docs`.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 🔄 Workflow[m
+[32m+[m
+[32m+[m[32m```[m
+[32m+[m[32m1. Upload documents via the UI[m
+[32m+[m[32m2. System extracts, chunks, and embeds the text[m
+[32m+[m[32m3. Embeddings are stored in the vector database[m
+[32m+[m[32m4. Ask a question in the chat interface[m
+[32m+[m[32m5. Relevant chunks are retrieved semantically[m
+[32m+[m[32m6. LLM generates an answer grounded in those chunks[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 🧪 Testing[m
+[32m+[m
+[32m+[m[32m- Retrieval accuracy testing[m
+[32m+[m[32m- Hallucination / faithfulness testing[m
+[32m+[m[32m- API testing (Swagger UI available at `/docs`)[m
+[32m+[m[32m- UI/UX validation[m
+[32m+[m[32m- Performance benchmarking[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 🔮 Roadmap[m
+[32m+[m
+[32m+[m[32m- [ ] Multi-language document support[m
+[32m+[m[32m- [ ] Advanced RBAC and access control[m
+[32m+[m[32m- [ ] Real-time document sync[m
+[32m+[m[32m- [ ] Hybrid search (keyword + semantic)[m
+[32m+[m[32m- [ ] Fine-tuned enterprise LLM integration[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 👥 Team[m
+[32m+[m
+[32m+[m[32m- Jagath Jyothis T S[m
+[32m+[m[32m- Kiran Krishna P[m
+[32m+[m[32m- Devadath Madhusoodanan[m
+[32m+[m[32m- Unnikrishnan Thriuvara Variyath[m
+[32m+[m[32m- T P Devanarayanan[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 📜 License[m
+[32m+[m
+[32m+[m[32mThis project is for academic and enterprise prototype purposes.[m
+[1mdiff --git a/backend/rag_engine/rag_pipeline/llm/orchestrator.py b/backend/rag_engine/rag_pipeline/llm/orchestrator.py[m
+[1mindex 064514d..1af8460 100644[m
+[1m--- a/backend/rag_engine/rag_pipeline/llm/orchestrator.py[m
+[1m+++ b/backend/rag_engine/rag_pipeline/llm/orchestrator.py[m
+[36m@@ -25,19 +25,17 @@[m [mDEEP_TRIGGERS: set[str] = {[m
+ # ─── Prompt templates ─────────────────────────────────────────────────────────[m
+ [m
+ FAST_PROMPT = """\[m
+[31m-You are an Enterprise Knowledge Assistant.[m
+[31m-Answer using ONLY the information provided in the context below.[m
+[32m+[m[32mYou are an Enterprise Knowledge Assistant that answers questions strictly from company documents.[m
+ [m
+[31m-RULES:[m
+[31m-- Respond with 3 to 5 bullet points ONLY.[m
+[31m-- Each bullet must be one clear, direct sentence under 20 words.[m
+[31m-- Do NOT write introductions, summaries, or follow-up sentences.[m
+[31m-- Do NOT explain your reasoning or add commentary.[m
+[31m-- Do NOT add any information not present in the context.[m
+[31m-- Do NOT mention the documents or context explicitly.[m
+[32m+[m[32mCRITICAL RULES — follow every one without exception:[m
+[32m+[m[32m1. Read the CONTEXT carefully. Your answer MUST be directly supported by words or facts present in the context.[m
+[32m+[m[32m2. Answer in 2–4 concise bullet points. Each bullet should be one clear sentence.[m
+[32m+[m[32m3. Only include bullets that are clearly answerable from the context. Fewer accurate bullets beats more irrelevant ones.[m
+[32m+[m[32m4. Do NOT add outside knowledge, assumptions, or filler statements not grounded in the context.[m
+[32m+[m[32m5. Do NOT mention "the context", "the documents", or repeat the question.[m
+[32m+[m[32m6. If the context does not contain enough information to answer, output ONLY the exact fallback phrase — nothing else.[m
+ [m
+[31m-If the answer is not found in the context, respond EXACTLY with:[m
+[31m-"I could not find an answer to this question in the provided documents."\[m
+[32m+[m[32mRELEVANCE CHECK: Before writing each bullet, verify it is directly supported by text in the context above. If it is not, skip it.\[m
+ """[m
+ [m
+ DEEP_PROMPT = """\[m
+[36m@@ -62,7 +60,28 @@[m [mFALLBACK_RESPONSE = ([m
+     "I could not find an answer to this question in the provided documents."[m
+ )[m
+ [m
+[31m-USER_PROMPT_TEMPLATE = """\[m
+[32m+[m[32m# ─── Fast-path user prompt — tighter relevance grounding ──────────────────────[m
+[32m+[m
+[32m+[m[32mFAST_USER_PROMPT_TEMPLATE = """\[m
+[32m+[m[32mCONTEXT FROM DOCUMENTS:[m
+[32m+[m[32m{context}[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32mQUESTION: {question}[m
+[32m+[m
+[32m+[m[32mINSTRUCTIONS:[m
+[32m+[m[32m- Re-read the context above carefully.[m
+[32m+[m[32m- Answer ONLY with information that is explicitly stated in the context.[m
+[32m+[m[32m- If a fact is not in the context, do NOT include it.[m
+[32m+[m[32m- If the context has no relevant information at all, respond with EXACTLY: "{fallback}"[m
+[32m+[m
+[32m+[m[32mAnswer (bullet points only, grounded in the context):\[m
+[32m+[m[32m"""[m
+[32m+[m
+[32m+[m[32m# ─── Deep-path user prompt ────────────────────────────────────────────────────[m
+[32m+[m
+[32m+[m[32mDEEP_USER_PROMPT_TEMPLATE = """\[m
+ CONTEXT FROM DOCUMENTS:[m
+ {context}[m
+ [m
+[36m@@ -78,6 +97,9 @@[m [mINSTRUCTIONS:[m
+ Answer:\[m
+ """[m
+ [m
+[32m+[m[32m# Backward-compatible alias[m
+[32m+[m[32mUSER_PROMPT_TEMPLATE = DEEP_USER_PROMPT_TEMPLATE[m
+[32m+[m
+ [m
+ # ─── Response dataclass ───────────────────────────────────────────────────────[m
+ [m
+[36m@@ -99,7 +121,8 @@[m [mclass LLMOrchestrator:[m
+     Wraps the Ollama / HuggingFace LLM call with:[m
+       · Smart fast / deep model selection (single call, no double-override)[m
+       · Metadata-clean context (strips score annotations before prompt)[m
+[31m-      · Hard token split: 300 (fast) vs 1200 (deep)[m
+[32m+[m[32m      · Hard token split: 400 (fast) vs 1200 (deep)[m
+[32m+[m[32m      · Separate, relevance-focused prompt for the fast path[m
+       · Strict grounding prompt with injected fallback string[m
+       · Fallback detection[m
+       · Source citation passthrough[m
+[36m@@ -119,8 +142,8 @@[m [mclass LLMOrchestrator:[m
+         self.model       = fast_model       # active model; set by select_model()[m
+         self.backend     = backend[m
+         self.base_url    = base_url[m
+[31m-        self.max_tokens  = max_tokens       # kept for reference; not used in _get_model_config[m
+[31m-        self.temperature = temperature      # kept for reference; not used in _get_model_config[m
+[32m+[m[32m        self.max_tokens  = max_tokens[m
+[32m+[m[32m        self.temperature = temperature[m
+         self._client     = None[m
+         self._pipe       = None[m
+ [m
+[36m@@ -190,19 +213,22 @@[m [mclass LLMOrchestrator:[m
+ [m
+     def _get_model_config(self) -> dict:[m
+         """[m
+[31m-        Hard-coded token budgets to guarantee visible output difference.[m
+[31m-        Fast: 300 tokens  → forces bullet brevity[m
+[31m-        Deep: 1200 tokens → allows full structured explanation[m
+[32m+[m[32m        Fast path: relevance-first prompt, slightly higher token budget (400)[m
+[32m+[m[32m                   so the model has room to be precise without being forced[m
+[32m+[m[32m                   into truncated or hallucinated bullets.[m
+[32m+[m[32m        Deep path: full structured explanation, 1200 tokens.[m
+         """[m
+         if self.model == self.fast_model:[m
+             return {[m
+                 "system_prompt": FAST_PROMPT,[m
+[31m-                "temperature":   0.1,[m
+[31m-                "max_tokens":    300,[m
+[32m+[m[32m                "user_template": FAST_USER_PROMPT_TEMPLATE,[m
+[32m+[m[32m                "temperature":   0.05,   # near-deterministic for factual retrieval[m
+[32m+[m[32m                "max_tokens":    400,    # raised from 300 → avoids cut-off bullets[m
+             }[m
+         else:[m
+             return {[m
+                 "system_prompt": DEEP_PROMPT,[m
+[32m+[m[32m                "user_template": DEEP_USER_PROMPT_TEMPLATE,[m
+                 "temperature":   0.25,[m
+                 "max_tokens":    1200,[m
+             }[m
+[36m@@ -214,22 +240,52 @@[m [mclass LLMOrchestrator:[m
+         """[m
+         Strip retrieval metadata (score, page score annotations) that leak[m
+         from the vector store into the prompt and appear in model output.[m
+[31m-[m
+[31m-        Handles:[m
+[31m-          - Standalone lines:  "(score: 0.63)"  /  "page score: 0.61"[m
+[31m-          - Inline suffixes:   "...some text (score: 0.63)"[m
+         """[m
+         cleaned_lines = [][m
+         for line in raw_context.splitlines():[m
+[31m-            # Drop lines that are purely a score annotation[m
+             if re.match(r"^\s*\(?\s*(score|page score)\s*:", line, re.IGNORECASE):[m
+                 continue[m
+[31m-            # Strip inline score/page-score annotations[m
+             line = re.sub(r"\s*\(\s*score\s*:\s*[\d.]+\)", "", line, flags=re.IGNORECASE)[m
+             line = re.sub(r"\s*\(\s*page score\s*:\s*[\d.]+\)", "", line, flags=re.IGNORECASE)[m
+             cleaned_lines.append(line)[m
+         return "\n".join(cleaned_lines).strip()[m
+ [m
+[32m+[m[32m    # ── Query rewriter (fast path only) ───────────────────────────────────[m
+[32m+[m
+[32m+[m[32m    @staticmethod[m
+[32m+[m[32m    def _rewrite_query_for_retrieval(query: str) -> str:[m
+[32m+[m[32m        """[m
+[32m+[m[32m        Expand short/ambiguous queries so the embedding search finds more[m
+[32m+[m[32m        relevant chunks.  This is a lightweight heuristic rewrite — no LLM[m
+[32m+[m[32m        call required.[m
+[32m+[m
+[32m+[m[32m        Examples:[m
+[32m+[m[32m          "leave policy"   → "What is the leave policy?"[m
+[32m+[m[32m          "refund"         → "What is the refund process or policy?"[m
+[32m+[m[32m          "password reset" → "How do I reset my password?"[m
+[32m+[m[32m        """[m
+[32m+[m[32m        q = query.strip()[m
+[32m+[m
+[32m+[m[32m        # Already a full question — return as-is[m
+[32m+[m[32m        if q.endswith("?") or len(q.split()) > 8:[m
+[32m+[m[32m            return q[m
+[32m+[m
+[32m+[m[32m        # Very short keyword phrase — wrap it in a question[m
+[32m+[m[32m        word_count = len(q.split())[m
+[32m+[m[32m        if word_count <= 3:[m
+[32m+[m[32m            return f"What is {q}?"[m
+[32m+[m
+[32m+[m[32m        # Medium phrase without a verb — add "What is" or "How to"[m
+[32m+[m[32m        lower = q.lower()[m
+[32m+[m[32m        has_verb = any(v in lower for v in ([m
+[32m+[m[32m            "is", "are", "was", "were", "do", "does", "did",[m
+[32m+[m[32m            "can", "could", "should", "would", "will", "how", "what", "when", "why"[m
+[32m+[m[32m        ))[m
+[32m+[m[32m        if not has_verb:[m
+[32m+[m[32m            return f"What is {q}?"[m
+[32m+[m
+[32m+[m[32m        return q[m
+[32m+[m
+     # ── Main entry point ──────────────────────────────────────────────────[m
+ [m
+     def answer(self, context: RetrievedContext) -> LLMResponse:[m
+[36m@@ -237,8 +293,6 @@[m [mclass LLMOrchestrator:[m
+         Given a RetrievedContext, build prompt → call LLM → return LLMResponse.[m
+ [m
+         NOTE: select_model() must be called by the pipeline BEFORE this method.[m
+[31m-              answer() intentionally does NOT call select_model() to avoid[m
+[31m-              overriding the caller's explicit mode choice.[m
+         """[m
+         # Short-circuit: no context → return fallback without an LLM call[m
+         if context.is_empty():[m
+[36m@@ -254,7 +308,8 @@[m [mclass LLMOrchestrator:[m
+         # Clean metadata before building prompt[m
+         clean_ctx = self._clean_context(context.context_text)[m
+ [m
+[31m-        prompt = USER_PROMPT_TEMPLATE.format([m
+[32m+[m[32m        cfg = self._get_model_config()[m
+[32m+[m[32m        prompt = cfg["user_template"].format([m
+             context  = clean_ctx,[m
+             question = context.query,[m
+             fallback = FALLBACK_RESPONSE,[m
+[36m@@ -312,4 +367,4 @@[m [mclass LLMOrchestrator:[m
+             f"{user_prompt} [/INST]"[m
+         )[m
+         output = self._pipe(full_prompt, return_full_text=False)[m
+[31m-        return output[0]["generated_text"][m
+\ No newline at end of file[m
+[32m+[m[32m        return output[0]["generated_text"][m
+[1mdiff --git a/backend/rag_engine/rag_pipeline/pipeline.py b/backend/rag_engine/rag_pipeline/pipeline.py[m
+[1mindex 83f25da..2d27bea 100644[m
+[1m--- a/backend/rag_engine/rag_pipeline/pipeline.py[m
+[1m+++ b/backend/rag_engine/rag_pipeline/pipeline.py[m
+[36m@@ -37,13 +37,14 @@[m [mclass PipelineConfig:[m
+     collection_name:      str   = "enterprise_rag"[m
+ [m
+     # Retrieval[m
+[31m-    # fast model uses retrieval_top_k_fast, deep model uses retrieval_top_k_deep[m
+[31m-    # caller's explicit top_k argument always overrides both[m
+[31m-    retrieval_top_k_fast: int   = 3[m
+[32m+[m[32m    # fast model: more chunks (5) but stricter relevance filter → higher precision[m
+[32m+[m[32m    # deep model: even more chunks for broad coverage[m
+[32m+[m[32m    retrieval_top_k_fast: int   = 5     # raised from 3 → better recall before MMR filters[m
+     retrieval_top_k_deep: int   = 6[m
+     retrieval_fetch_k:    int   = 25[m
+[31m-    min_relevance_score:  float = 0.30[m
+[31m-    mmr_lambda:           float = 0.6[m
+[32m+[m[32m    min_relevance_score:  float = 0.45  # raised from 0.30 → filters noise chunks[m
+[32m+[m[32m    mmr_lambda_fast:      float = 0.80  # NEW: relevance-first for fast path[m
+[32m+[m[32m    mmr_lambda_deep:      float = 0.60  # original balanced value for deep path[m
+ [m
+     # LLM[m
+     fast_model:           str   = "phi3:mini"[m
+[36m@@ -76,8 +77,10 @@[m [mclass RAGPipeline:[m
+         store:                VectorStore,[m
+         retriever:            RetrievalEngine,[m
+         llm:                  LLMOrchestrator,[m
+[31m-        retrieval_top_k_fast: int = 3,[m
+[31m-        retrieval_top_k_deep: int = 6,[m
+[32m+[m[32m        retrieval_top_k_fast: int   = 5,[m
+[32m+[m[32m        retrieval_top_k_deep: int   = 6,[m
+[32m+[m[32m        mmr_lambda_fast:      float = 0.80,[m
+[32m+[m[32m        mmr_lambda_deep:      float = 0.60,[m
+     ):[m
+         self.chunker              = chunker[m
+         self.embedder             = embedder[m
+[36m@@ -86,6 +89,8 @@[m [mclass RAGPipeline:[m
+         self.llm                  = llm[m
+         self.retrieval_top_k_fast = retrieval_top_k_fast[m
+         self.retrieval_top_k_deep = retrieval_top_k_deep[m
+[32m+[m[32m        self.mmr_lambda_fast      = mmr_lambda_fast[m
+[32m+[m[32m        self.mmr_lambda_deep      = mmr_lambda_deep[m
+         logger.info("RAGPipeline initialised.")[m
+ [m
+     # ── Factory ───────────────────────────────────────────────────────────[m
+[36m@@ -107,11 +112,10 @@[m [mclass RAGPipeline:[m
+             batch_size = cfg.embedding_batch_size,[m
+             cache      = cfg.embedding_cache,[m
+         )[m
+[31m-        # ✅ Fixed[m
+         if cfg.vector_backend == "faiss":[m
+             store = build_vector_store([m
+                 backend    = "faiss",[m
+[31m-                index_path = cfg.vector_persist_dir,  # FAISS expects index_path not persist_dir[m
+[32m+[m[32m                index_path = cfg.vector_persist_dir,[m
+             )[m
+         elif cfg.vector_backend == "chroma":[m
+             store = build_vector_store([m
+[36m@@ -121,13 +125,14 @@[m [mclass RAGPipeline:[m
+             )[m
+         else:[m
+             raise ValueError(f"Unknown vector backend: {cfg.vector_backend!r}")[m
+[32m+[m
+         retriever = RetrievalEngine([m
+             embedding_engine = embedder,[m
+             vector_store     = store,[m
+             top_k            = cfg.retrieval_top_k_deep,   # default; overridden per query[m
+             fetch_k          = cfg.retrieval_fetch_k,[m
+             min_score        = cfg.min_relevance_score,[m
+[31m-            mmr_lambda       = cfg.mmr_lambda,[m
+[32m+[m[32m            mmr_lambda       = cfg.mmr_lambda_deep,[m
+         )[m
+         llm = LLMOrchestrator([m
+             fast_model  = cfg.fast_model,[m
+[36m@@ -145,6 +150,8 @@[m [mclass RAGPipeline:[m
+             llm,[m
+             retrieval_top_k_fast = cfg.retrieval_top_k_fast,[m
+             retrieval_top_k_deep = cfg.retrieval_top_k_deep,[m
+[32m+[m[32m            mmr_lambda_fast      = cfg.mmr_lambda_fast,[m
+[32m+[m[32m            mmr_lambda_deep      = cfg.mmr_lambda_deep,[m
+         )[m
+ [m
+     # ── Indexing ──────────────────────────────────────────────────────────[m
+[36m@@ -216,13 +223,15 @@[m [mclass RAGPipeline:[m
+     ) -> LLMResponse:[m
+         """[m
+         Full RAG query pipeline:[m
+[31m-          question → select model → retrieve context → LLM → LLMResponse[m
+[31m-[m
+[31m-        Model selection happens ONCE here.[m
+[31m-        Retrieval depth scales automatically with model:[m
+[31m-          fast → retrieval_top_k_fast (default 3)[m
+[31m-          deep → retrieval_top_k_deep (default 6)[m
+[31m-        Caller's explicit top_k always overrides both.[m
+[32m+[m[32m          question → select model → [rewrite query for fast path][m
+[32m+[m[32m                   → retrieve context → LLM → LLMResponse[m
+[32m+[m
+[32m+[m[32m        Fast path improvements vs original:[m
+[32m+[m[32m          - Query rewriting: short/vague queries are expanded before embedding[m
+[32m+[m[32m          - Higher retrieval top_k (5 vs 3): more candidates for MMR to filter[m
+[32m+[m[32m          - Relevance-first MMR (λ=0.80 vs 0.60): picks the most on-topic chunks[m
+[32m+[m[32m          - Stricter score threshold (0.45 vs 0.30): noise chunks are rejected[m
+[32m+[m[32m          - Tighter grounding prompt with per-bullet relevance check instruction[m
+         """[m
+         logger.info(f"Query: {question!r}  |  mode={model_mode!r}")[m
+ [m
+[36m@@ -230,28 +239,56 @@[m [mclass RAGPipeline:[m
+         self.llm.select_model(question, model_mode)[m
+         logger.info(f"  → Active model: {self.llm.model!r}")[m
+ [m
+[31m-        # 2. Resolve retrieval depth[m
+[32m+[m[32m        is_fast = (self.llm.model == self.llm.fast_model)[m
+[32m+[m
+[32m+[m[32m        # 2. For the fast path, rewrite short/ambiguous queries to improve[m
+[32m+[m[32m        #    embedding recall before retrieval.[m
+[32m+[m[32m        retrieval_query = question[m
+[32m+[m[32m        if is_fast:[m
+[32m+[m[32m            retrieval_query = self.llm._rewrite_query_for_retrieval(question)[m
+[32m+[m[32m            if retrieval_query != question:[m
+[32m+[m[32m                logger.info(f"  → Query rewritten for retrieval: {retrieval_query!r}")[m
+[32m+[m
+[32m+[m[32m        # 3. Resolve retrieval depth and MMR lambda[m
+         if top_k is not None:[m
+             effective_top_k = top_k[m
+[31m-        elif self.llm.model == self.llm.fast_model:[m
+[32m+[m[32m        elif is_fast:[m
+             effective_top_k = self.retrieval_top_k_fast[m
+         else:[m
+             effective_top_k = self.retrieval_top_k_deep[m
+ [m
+[31m-        logger.info(f"  → Retrieval top_k: {effective_top_k}")[m
+[32m+[m[32m        effective_mmr = self.mmr_lambda_fast if is_fast else self.mmr_lambda_deep[m
+[32m+[m[32m        logger.info([m
+[32m+[m[32m            f"  → Retrieval top_k={effective_top_k}  mmr_lambda={effective_mmr}"[m
+[32m+[m[32m        )[m
+ [m
+[31m-        # 3. Retrieve context[m
+[31m-        context = self.retriever.retrieve([m
+[31m-            query         = question,[m
+[32m+[m[32m        # 4. Retrieve context (rewritten query used for embedding; original[m
+[32m+[m[32m        #    question is preserved in the RetrievedContext for the LLM prompt)[m
+[32m+[m[32m        raw_context = self.retriever.retrieve([m
+[32m+[m[32m            query         = retrieval_query,[m
+             top_k         = effective_top_k,[m
+             filter_doc_id = filter_doc_id,[m
+[32m+[m[32m            mmr_lambda    = effective_mmr,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # Restore the user's original question in the context object so the[m
+[32m+[m[32m        # LLM prompt shows what the user actually asked (not the rewritten form)[m
+[32m+[m[32m        from rag_engine.rag_pipeline.retrieval.retrieval_engine import RetrievedContext[m
+[32m+[m[32m        context = RetrievedContext([m
+[32m+[m[32m            query        = question,        # original question for the prompt[m
+[32m+[m[32m            chunks       = raw_context.chunks,[m
+[32m+[m[32m            context_text = raw_context.context_text,[m
+[32m+[m[32m            sources      = raw_context.sources,[m
+[32m+[m[32m            total_tokens = raw_context.total_tokens,[m
+[32m+[m[32m            strategy_used= raw_context.strategy_used,[m
+         )[m
+[32m+[m
+         logger.info([m
+             f"  → Retrieved {len(context.chunks)} chunks "[m
+             f"(~{context.total_tokens} tokens)"[m
+         )[m
+ [m
+[31m-        # 4. Generate answer (metadata cleaning happens inside orchestrator)[m
+[32m+[m[32m        # 5. Generate answer[m
+         response = self.llm.answer(context)[m
+         logger.info([m
+             f"  → {'Grounded' if response.is_grounded else 'FALLBACK'} answer | "[m
+[36m@@ -271,4 +308,6 @@[m [mclass RAGPipeline:[m
+             "deep_model":            self.llm.deep_model,[m
+             "retrieval_top_k_fast":  self.retrieval_top_k_fast,[m
+             "retrieval_top_k_deep":  self.retrieval_top_k_deep,[m
+[31m-        }[m
+\ No newline at end of file[m
+[32m+[m[32m            "mmr_lambda_fast":       self.mmr_lambda_fast,[m
+[32m+[m[32m            "mmr_lambda_deep":       self.mmr_lambda_deep,[m
+[32m+[m[32m        }[m
+[1mdiff --git a/backend/rag_engine/rag_pipeline/retrieval/retrieval_engine.py b/backend/rag_engine/rag_pipeline/retrieval/retrieval_engine.py[m
+[1mindex 1d88add..c0d992f 100644[m
+[1m--- a/backend/rag_engine/rag_pipeline/retrieval/retrieval_engine.py[m
+[1m+++ b/backend/rag_engine/rag_pipeline/retrieval/retrieval_engine.py[m
+[36m@@ -26,10 +26,10 @@[m [mlogger = logging.getLogger(__name__)[m
+ [m
+ # ─── Config ──────────────────────────────────────────────────────────────────[m
+ [m
+[31m-DEFAULT_TOP_K          = 3      # chunks to return to the LLM[m
+[32m+[m[32mDEFAULT_TOP_K          = 5      # raised: more chunks → better answer coverage[m
+ DEFAULT_FETCH_K        = 25     # candidates fetched before re-ranking[m
+[31m-MIN_RELEVANCE_SCORE    = 0.30   # below this → chunk is noise[m
+[31m-MMR_LAMBDA             = 0.6    # 1.0 = pure relevance; 0.0 = pure diversity[m
+[32m+[m[32mMIN_RELEVANCE_SCORE    = 0.45   # raised from 0.30 → filters out noise chunks[m
+[32m+[m[32mMMR_LAMBDA             = 0.75   # raised from 0.6 → more relevance-weighted for fast path[m
+ [m
+ [m
+ # ─── Result container ────────────────────────────────────────────────────────[m
+[36m@@ -83,12 +83,14 @@[m [mclass RetrievalEngine:[m
+         query:         str,[m
+         top_k:         Optional[int]   = None,[m
+         filter_doc_id: Optional[str]   = None,[m
+[32m+[m[32m        mmr_lambda:    Optional[float] = None,   # NEW: per-call MMR override[m
+     ) -> RetrievedContext:[m
+         """[m
+         Full pipeline: embed → search → filter → MMR → format context.[m
+         Returns RetrievedContext (context_text is empty string if no good matches).[m
+         """[m
+[31m-        k = top_k or self.top_k[m
+[32m+[m[32m        k          = top_k or self.top_k[m
+[32m+[m[32m        mmr_lam    = mmr_lambda if mmr_lambda is not None else self.mmr_lambda[m
+ [m
+         # 1. Embed query[m
+         query_vector = self.embedder.embed_query(query)[m
+[36m@@ -108,7 +110,7 @@[m [mclass RetrievalEngine:[m
+             return self._empty_context(query)[m
+ [m
+         # 4. MMR re-rank for diversity[m
+[31m-        selected = self._mmr_rerank(candidates, query_vector, k)[m
+[32m+[m[32m        selected = self._mmr_rerank(candidates, query_vector, k, mmr_lam)[m
+ [m
+         # 5. Sort selected chunks by document + page order for coherent reading[m
+         selected.sort(key=lambda r: (r.doc_id, r.page_number or 0, r.chunk_index))[m
+[36m@@ -125,31 +127,29 @@[m [mclass RetrievalEngine:[m
+             sources      = sources,[m
+             total_tokens = total_tokens,[m
+         )[m
+[31m-    [m
+[32m+[m
+     @staticmethod[m
+     def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:[m
+         return float(np.dot(a, b))[m
+ [m
+     # ── MMR re-ranking ────────────────────────────────────────────────────[m
+[31m-    [m
+ [m
+     def _mmr_rerank([m
+         self,[m
+         candidates:   List[RetrievalResult],[m
+         query_vector: np.ndarray,[m
+         k:            int,[m
+[32m+[m[32m        mmr_lambda:   float,[m
+     ) -> List[RetrievalResult]:[m
+         """[m
+         Maximal Marginal Relevance:[m
+           At each step, pick the chunk that maximises:[m
+             λ * sim(chunk, query) - (1-λ) * max_sim(chunk, already_selected)[m
+[31m-          This ensures diversity — avoids selecting 5 near-identical chunks.[m
+[32m+[m[32m          Higher λ → favours relevance; lower λ → favours diversity.[m
+[32m+[m[32m          Fast path uses λ=0.80 (relevance-first).[m
+[32m+[m[32m          Deep path uses λ=0.60 (balanced diversity).[m
+         """[m
+[31m-        # Pre-compute candidate vectors from score (proxy: we don't re-fetch vectors here)[m
+[31m-        # Instead we use a greedy approach with cosine proxy from scores + text similarity[m
+[31m-        # Note: for exact MMR you'd store vectors; this is a score-diversity approximation.[m
+[31m-[m
+[31m-        selected:   List[RetrievalResult] = [][m
+[32m+[m[32m        selected:  List[RetrievalResult] = [][m
+         remaining = list(candidates)[m
+ [m
+         # First pick: highest relevance score[m
+[36m@@ -161,10 +161,8 @@[m [mclass RetrievalEngine:[m
+             best_idx   = 0[m
+ [m
+             for i, cand in enumerate(remaining):[m
+[31m-                # Relevance term[m
+                 rel = cand.score[m
+ [m
+[31m-                # Diversity term: penalise if text overlaps with already selected[m
+                 similarities = [[m
+                      self._cosine_similarity(cand.vector, sel.vector)[m
+                      for sel in selected[m
+[36m@@ -172,7 +170,7 @@[m [mclass RetrievalEngine:[m
+                      ][m
+                 max_sim_to_selected = max(similarities) if similarities else 0.0[m
+ [m
+[31m-                mmr_score = self.mmr_lambda * rel - (1 - self.mmr_lambda) * max_sim_to_selected[m
+[32m+[m[32m                mmr_score = mmr_lambda * rel - (1 - mmr_lambda) * max_sim_to_selected[m
+                 if mmr_score > best_score:[m
+                     best_score = mmr_score[m
+                     best_idx   = i[m
+[36m@@ -182,21 +180,19 @@[m [mclass RetrievalEngine:[m
+         return selected[m
+ [m
+     # ── Context builder ───────────────────────────────────────────────────[m
+[31m-    [m
+[31m-    [m
+[32m+[m
+     @staticmethod[m
+     def _build_context(chunks: List[RetrievalResult]) -> str:[m
+         """[m
+         Assembles chunks into a structured context string for the LLM prompt.[m
+[31m-        Format:[m
+[31m-          [Source 1 | doc: report_q3 | page: 4][m
+[31m-          <chunk text>[m
+[31m-          ---[m
+[32m+[m[32m        Score annotation is intentionally omitted here — the orchestrator's[m
+[32m+[m[32m        _clean_context() strips it anyway, and omitting it keeps the prompt[m
+[32m+[m[32m        cleaner from the start.[m
+         """[m
+         parts = [][m
+         for i, chunk in enumerate(chunks, 1):[m
+             page_str = f" | page: {chunk.page_number}" if chunk.page_number else ""[m
+[31m-            header   = f"[Source {i} | doc: {chunk.doc_id}{page_str} | score: {chunk.score:.2f}]"[m
+[32m+[m[32m            header   = f"[Source {i} | doc: {chunk.doc_id}{page_str}]"[m
+             parts.append(f"{header}\n{chunk.text}")[m
+         return "\n\n---\n\n".join(parts)[m
+ [m

@@ -1,8 +1,3 @@
-"""
-Document Loader — Sprint 1
-Reads files from docs/ folder and converts them into page dicts.
-Supported: PDF, DOCX, TXT, HTML, PPTX
-"""
 
 from __future__ import annotations
 

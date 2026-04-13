@@ -12,6 +12,7 @@ from app.api.routes.query_routes import router as query_router
 from app.api.routes.document_routes import router as document_router
 from app.api.routes.auth_routes import router as auth_router
 from app.api.routes.admin_routes import router as admin_router
+from app.api.routes.chat_routes import router as chat_router
 from app.core.rag_pipeline import init_pipeline
 
 load_dotenv()
@@ -40,6 +41,7 @@ app.add_middleware(
 
 app.include_router(query_router, prefix="/api")
 app.include_router(document_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 app.include_router(auth_router)
 app.include_router(admin_router)
 

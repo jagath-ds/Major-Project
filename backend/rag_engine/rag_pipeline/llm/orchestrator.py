@@ -25,19 +25,17 @@ DEEP_TRIGGERS: set[str] = {
 # ─── Prompt templates ─────────────────────────────────────────────────────────
 
 FAST_PROMPT = """\
-You are an Enterprise Knowledge Assistant.
-Answer using ONLY the information provided in the context below.
+You are an Enterprise Knowledge Assistant that answers questions strictly from company documents.
 
-RULES:
-- Respond with 3 to 5 bullet points ONLY.
-- Each bullet must be one clear, direct sentence under 20 words.
-- Do NOT write introductions, summaries, or follow-up sentences.
-- Do NOT explain your reasoning or add commentary.
-- Do NOT add any information not present in the context.
-- Do NOT mention the documents or context explicitly.
+CRITICAL RULES — follow every one without exception:
+1. Read the CONTEXT carefully. Your answer MUST be directly supported by words or facts present in the context.
+2. Answer in 2–4 concise bullet points. Each bullet should be one clear sentence.
+3. Only include bullets that are clearly answerable from the context. Fewer accurate bullets beats more irrelevant ones.
+4. Do NOT add outside knowledge, assumptions, or filler statements not grounded in the context.
+5. Do NOT mention "the context", "the documents", or repeat the question.
+6. If the context does not contain enough information to answer, output ONLY the exact fallback phrase — nothing else.
 
-If the answer is not found in the context, respond EXACTLY with:
-"I could not find an answer to this question in the provided documents."\
+RELEVANCE CHECK: Before writing each bullet, verify it is directly supported by text in the context above. If it is not, skip it.\
 """
 
 DEEP_PROMPT = """\
@@ -62,7 +60,28 @@ FALLBACK_RESPONSE = (
     "I could not find an answer to this question in the provided documents."
 )
 
-USER_PROMPT_TEMPLATE = """\
+# ─── Fast-path user prompt — tighter relevance grounding ──────────────────────
+
+FAST_USER_PROMPT_TEMPLATE = """\
+CONTEXT FROM DOCUMENTS:
+{context}
+
+---
+
+QUESTION: {question}
+
+INSTRUCTIONS:
+- Re-read the context above carefully.
+- Answer ONLY with information that is explicitly stated in the context.
+- If a fact is not in the context, do NOT include it.
+- If the context has no relevant information at all, respond with EXACTLY: "{fallback}"
+
+Answer (bullet points only, grounded in the context):\
+"""
+
+# ─── Deep-path user prompt ────────────────────────────────────────────────────
+
+DEEP_USER_PROMPT_TEMPLATE = """\
 CONTEXT FROM DOCUMENTS:
 {context}
 
@@ -77,6 +96,9 @@ INSTRUCTIONS:
 
 Answer:\
 """
+
+# Backward-compatible alias
+USER_PROMPT_TEMPLATE = DEEP_USER_PROMPT_TEMPLATE
 
 
 # ─── Response dataclass ───────────────────────────────────────────────────────
@@ -99,7 +121,8 @@ class LLMOrchestrator:
     Wraps the Ollama / HuggingFace LLM call with:
       · Smart fast / deep model selection (single call, no double-override)
       · Metadata-clean context (strips score annotations before prompt)
-      · Hard token split: 300 (fast) vs 1200 (deep)
+      · Hard token split: 400 (fast) vs 1200 (deep)
+      · Separate, relevance-focused prompt for the fast path
       · Strict grounding prompt with injected fallback string
       · Fallback detection
       · Source citation passthrough
@@ -119,8 +142,8 @@ class LLMOrchestrator:
         self.model       = fast_model       # active model; set by select_model()
         self.backend     = backend
         self.base_url    = base_url
-        self.max_tokens  = max_tokens       # kept for reference; not used in _get_model_config
-        self.temperature = temperature      # kept for reference; not used in _get_model_config
+        self.max_tokens  = max_tokens
+        self.temperature = temperature
         self._client     = None
         self._pipe       = None
 
@@ -190,19 +213,22 @@ class LLMOrchestrator:
 
     def _get_model_config(self) -> dict:
         """
-        Hard-coded token budgets to guarantee visible output difference.
-        Fast: 300 tokens  → forces bullet brevity
-        Deep: 1200 tokens → allows full structured explanation
+        Fast path: relevance-first prompt, slightly higher token budget (400)
+                   so the model has room to be precise without being forced
+                   into truncated or hallucinated bullets.
+        Deep path: full structured explanation, 1200 tokens.
         """
         if self.model == self.fast_model:
             return {
                 "system_prompt": FAST_PROMPT,
-                "temperature":   0.1,
-                "max_tokens":    300,
+                "user_template": FAST_USER_PROMPT_TEMPLATE,
+                "temperature":   0.05,   # near-deterministic for factual retrieval
+                "max_tokens":    400,    # raised from 300 → avoids cut-off bullets
             }
         else:
             return {
                 "system_prompt": DEEP_PROMPT,
+                "user_template": DEEP_USER_PROMPT_TEMPLATE,
                 "temperature":   0.25,
                 "max_tokens":    1200,
             }
@@ -214,21 +240,51 @@ class LLMOrchestrator:
         """
         Strip retrieval metadata (score, page score annotations) that leak
         from the vector store into the prompt and appear in model output.
-
-        Handles:
-          - Standalone lines:  "(score: 0.63)"  /  "page score: 0.61"
-          - Inline suffixes:   "...some text (score: 0.63)"
         """
         cleaned_lines = []
         for line in raw_context.splitlines():
-            # Drop lines that are purely a score annotation
             if re.match(r"^\s*\(?\s*(score|page score)\s*:", line, re.IGNORECASE):
                 continue
-            # Strip inline score/page-score annotations
             line = re.sub(r"\s*\(\s*score\s*:\s*[\d.]+\)", "", line, flags=re.IGNORECASE)
             line = re.sub(r"\s*\(\s*page score\s*:\s*[\d.]+\)", "", line, flags=re.IGNORECASE)
             cleaned_lines.append(line)
         return "\n".join(cleaned_lines).strip()
+
+    # ── Query rewriter (fast path only) ───────────────────────────────────
+
+    @staticmethod
+    def _rewrite_query_for_retrieval(query: str) -> str:
+        """
+        Expand short/ambiguous queries so the embedding search finds more
+        relevant chunks.  This is a lightweight heuristic rewrite — no LLM
+        call required.
+
+        Examples:
+          "leave policy"   → "What is the leave policy?"
+          "refund"         → "What is the refund process or policy?"
+          "password reset" → "How do I reset my password?"
+        """
+        q = query.strip()
+
+        # Already a full question — return as-is
+        if q.endswith("?") or len(q.split()) > 8:
+            return q
+
+        # Very short keyword phrase — wrap it in a question
+        word_count = len(q.split())
+        if word_count <= 3:
+            return f"What is {q}?"
+
+        # Medium phrase without a verb — add "What is" or "How to"
+        lower = q.lower()
+        has_verb = any(v in lower for v in (
+            "is", "are", "was", "were", "do", "does", "did",
+            "can", "could", "should", "would", "will", "how", "what", "when", "why"
+        ))
+        if not has_verb:
+            return f"What is {q}?"
+
+        return q
 
     # ── Main entry point ──────────────────────────────────────────────────
 
@@ -237,8 +293,6 @@ class LLMOrchestrator:
         Given a RetrievedContext, build prompt → call LLM → return LLMResponse.
 
         NOTE: select_model() must be called by the pipeline BEFORE this method.
-              answer() intentionally does NOT call select_model() to avoid
-              overriding the caller's explicit mode choice.
         """
         # Short-circuit: no context → return fallback without an LLM call
         if context.is_empty():
@@ -254,7 +308,8 @@ class LLMOrchestrator:
         # Clean metadata before building prompt
         clean_ctx = self._clean_context(context.context_text)
 
-        prompt = USER_PROMPT_TEMPLATE.format(
+        cfg = self._get_model_config()
+        prompt = cfg["user_template"].format(
             context  = clean_ctx,
             question = context.query,
             fallback = FALLBACK_RESPONSE,

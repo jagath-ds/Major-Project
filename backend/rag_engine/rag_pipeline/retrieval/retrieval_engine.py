@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from typing import List, Optional
-
+import re
 import numpy as np
 
 from rag_engine.rag_pipeline.embeddings.bge_engine import EmbeddingEngine
@@ -26,10 +26,10 @@ logger = logging.getLogger(__name__)
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
-DEFAULT_TOP_K          = 3      # chunks to return to the LLM
+DEFAULT_TOP_K          = 5      # raised: more chunks → better answer coverage
 DEFAULT_FETCH_K        = 25     # candidates fetched before re-ranking
-MIN_RELEVANCE_SCORE    = 0.30   # below this → chunk is noise
-MMR_LAMBDA             = 0.6    # 1.0 = pure relevance; 0.0 = pure diversity
+MIN_RELEVANCE_SCORE    = 0.45   # raised from 0.30 → filters out noise chunks
+MMR_LAMBDA             = 0.75   # raised from 0.6 → more relevance-weighted for fast path
 
 
 # ─── Result container ────────────────────────────────────────────────────────
@@ -83,12 +83,14 @@ class RetrievalEngine:
         query:         str,
         top_k:         Optional[int]   = None,
         filter_doc_id: Optional[str]   = None,
+        mmr_lambda:    Optional[float] = None,   # NEW: per-call MMR override
     ) -> RetrievedContext:
         """
         Full pipeline: embed → search → filter → MMR → format context.
         Returns RetrievedContext (context_text is empty string if no good matches).
         """
-        k = top_k or self.top_k
+        k          = top_k or self.top_k
+        mmr_lam    = mmr_lambda if mmr_lambda is not None else self.mmr_lambda
 
         # 1. Embed query
         query_vector = self.embedder.embed_query(query)
@@ -108,7 +110,7 @@ class RetrievalEngine:
             return self._empty_context(query)
 
         # 4. MMR re-rank for diversity
-        selected = self._mmr_rerank(candidates, query_vector, k)
+        selected = self._mmr_rerank(candidates, query_vector, k, mmr_lam)
 
         # 5. Sort selected chunks by document + page order for coherent reading
         selected.sort(key=lambda r: (r.doc_id, r.page_number or 0, r.chunk_index))
@@ -125,31 +127,29 @@ class RetrievalEngine:
             sources      = sources,
             total_tokens = total_tokens,
         )
-    
+
     @staticmethod
     def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
         return float(np.dot(a, b))
 
     # ── MMR re-ranking ────────────────────────────────────────────────────
-    
 
     def _mmr_rerank(
         self,
         candidates:   List[RetrievalResult],
         query_vector: np.ndarray,
         k:            int,
+        mmr_lambda:   float,
     ) -> List[RetrievalResult]:
         """
         Maximal Marginal Relevance:
           At each step, pick the chunk that maximises:
             λ * sim(chunk, query) - (1-λ) * max_sim(chunk, already_selected)
-          This ensures diversity — avoids selecting 5 near-identical chunks.
+          Higher λ → favours relevance; lower λ → favours diversity.
+          Fast path uses λ=0.80 (relevance-first).
+          Deep path uses λ=0.60 (balanced diversity).
         """
-        # Pre-compute candidate vectors from score (proxy: we don't re-fetch vectors here)
-        # Instead we use a greedy approach with cosine proxy from scores + text similarity
-        # Note: for exact MMR you'd store vectors; this is a score-diversity approximation.
-
-        selected:   List[RetrievalResult] = []
+        selected:  List[RetrievalResult] = []
         remaining = list(candidates)
 
         # First pick: highest relevance score
@@ -161,10 +161,8 @@ class RetrievalEngine:
             best_idx   = 0
 
             for i, cand in enumerate(remaining):
-                # Relevance term
                 rel = cand.score
 
-                # Diversity term: penalise if text overlaps with already selected
                 similarities = [
                      self._cosine_similarity(cand.vector, sel.vector)
                      for sel in selected
@@ -172,7 +170,7 @@ class RetrievalEngine:
                      ]
                 max_sim_to_selected = max(similarities) if similarities else 0.0
 
-                mmr_score = self.mmr_lambda * rel - (1 - self.mmr_lambda) * max_sim_to_selected
+                mmr_score = mmr_lambda * rel - (1 - mmr_lambda) * max_sim_to_selected
                 if mmr_score > best_score:
                     best_score = mmr_score
                     best_idx   = i
@@ -182,21 +180,19 @@ class RetrievalEngine:
         return selected
 
     # ── Context builder ───────────────────────────────────────────────────
-    
-    
+
     @staticmethod
     def _build_context(chunks: List[RetrievalResult]) -> str:
         """
         Assembles chunks into a structured context string for the LLM prompt.
-        Format:
-          [Source 1 | doc: report_q3 | page: 4]
-          <chunk text>
-          ---
+        Score annotation is intentionally omitted here — the orchestrator's
+        _clean_context() strips it anyway, and omitting it keeps the prompt
+        cleaner from the start.
         """
         parts = []
         for i, chunk in enumerate(chunks, 1):
             page_str = f" | page: {chunk.page_number}" if chunk.page_number else ""
-            header   = f"[Source {i} | doc: {chunk.doc_id}{page_str} | score: {chunk.score:.2f}]"
+            header   = f"[Source {i} | doc: {chunk.doc_id}{page_str}]"
             parts.append(f"{header}\n{chunk.text}")
         return "\n\n---\n\n".join(parts)
 

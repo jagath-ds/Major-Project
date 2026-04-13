@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { queryAI, changePassword } from "../services/api";
+import {
+  changePassword,
+  createChatSession,
+  deleteChatSession,
+  getChatMessages,
+  getChatSessions,
+  queryAI,
+  sendChatMessage,
+} from "../services/api";
 import ReactMarkdown from "react-markdown";
 import {
   LogOut,
@@ -157,6 +165,8 @@ export default function Dashboard() {
   const [passwordInput, setPasswordInput] = useState("");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [activeChatId, setActiveChatId] = useState(null);
+  const [savedChats, setSavedChats] = useState([]);
+  const [messages, setMessages] = useState([]);
 
   const messagesEndRef = useRef(null);
   const modelDropdownRef = useRef(null);
@@ -190,29 +200,24 @@ export default function Dashboard() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Persist chats
-  const [savedChats, setSavedChats] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("saved-chats") || "[]");
-    } catch {
-      return [];
-    }
-  });
-
   useEffect(() => {
-    localStorage.setItem("saved-chats", JSON.stringify(savedChats));
-  }, [savedChats]);
+    const loadChats = async () => {
+      try {
+        const chats = await getChatSessions();
+        setSavedChats(
+          chats.map((chat) => ({
+            id: chat.session_id,
+            title: chat.title,
+            time: chat.last_message_at,
+          })),
+        );
+      } catch (err) {
+        console.error("Failed to load chats:", err);
+      }
+    };
 
-  const [messages, setMessages] = useState([]);
-
-  useEffect(() => {
-    if (activeChatId) {
-      const chat = savedChats.find((c) => c.id === activeChatId);
-      if (chat) setMessages(chat.messages);
-    } else {
-      setMessages([]);
-    }
-  }, [activeChatId, savedChats]);
+    loadChats();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -255,9 +260,14 @@ export default function Dashboard() {
     setIsMenuOpen(false);
   };
 
-  const handleDeleteChat = () => {
+  const handleDeleteChat = async () => {
     if (activeChatId) {
       if (window.confirm("Delete this chat?")) {
+        try {
+          await deleteChatSession(activeChatId);
+        } catch (err) {
+          console.error("Failed to delete chat:", err);
+        }
         setSavedChats((prev) => prev.filter((c) => c.id !== activeChatId));
         handleNewChat();
       }
@@ -279,8 +289,9 @@ export default function Dashboard() {
     if (isTyping) return;
     if (!input.trim() && selectedFiles.length === 0) return;
 
-    const userInput = input;
+    const userInput = input.trim();
     const newUserMessage = {
+      id: `temp-user-${Date.now()}`,
       role: "user",
       text: userInput,
       files: selectedFiles,
@@ -341,6 +352,109 @@ export default function Dashboard() {
     }
   };
 
+  const handleSendChat = async () => {
+    if (isTyping) return;
+    if (!input.trim() && selectedFiles.length === 0) return;
+
+    const userInput = input.trim();
+    const tempUserMessage = {
+      id: `temp-user-${Date.now()}`,
+      role: "user",
+      text: userInput,
+      files: selectedFiles,
+    };
+
+    let currentChatId = activeChatId;
+
+    if (!currentChatId) {
+      try {
+        const session = await createChatSession("New Chat");
+        currentChatId = session.session_id;
+        setActiveChatId(currentChatId);
+        setSavedChats((prev) => [
+          {
+            id: session.session_id,
+            title: session.title,
+            time: session.last_message_at,
+          },
+          ...prev,
+        ]);
+      } catch (err) {
+        console.error("Failed to create chat session:", err);
+        return;
+      }
+    }
+
+    setMessages((prev) => [...prev, tempUserMessage]);
+    setInput("");
+    setSelectedFiles([]);
+    setIsTyping(true);
+
+    try {
+      const data = await sendChatMessage(currentChatId, userInput, modelMode);
+      const persistedUserMessage = {
+        id: data.user_message.message_id,
+        role: "user",
+        text: data.user_message.content,
+      };
+      const aiResponse = {
+        id: data.assistant_message.message_id,
+        role: "ai",
+        text: data.assistant_message.content,
+        sources: data.assistant_message.sources_json,
+      };
+
+      setMessages((prev) => {
+        const withoutTemp = prev.filter((msg) => msg.id !== tempUserMessage.id);
+        return [...withoutTemp, persistedUserMessage, aiResponse];
+      });
+
+      setSavedChats((prev) =>
+        prev
+          .map((chat) =>
+            chat.id === currentChatId
+              ? {
+                  ...chat,
+                  title: chat.title === "New Chat" ? userInput.slice(0, 60) : chat.title,
+                  time: new Date().toISOString(),
+                }
+              : chat,
+          )
+          .sort((a, b) => new Date(b.time) - new Date(a.time)),
+      );
+    } catch (err) {
+      console.error("Failed to send chat message:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `temp-ai-${Date.now()}`,
+          role: "ai",
+          text: "Error contacting AI server. Please try again.",
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleSelectChat = async (chatId) => {
+    setActiveChatId(chatId);
+    try {
+      const data = await getChatMessages(chatId);
+      setMessages(
+        data.messages.map((msg) => ({
+          id: msg.message_id,
+          role: msg.role === "assistant" ? "ai" : msg.role,
+          text: msg.content,
+          sources: msg.sources_json,
+        })),
+      );
+    } catch (err) {
+      console.error("Failed to load chat messages:", err);
+      setMessages([]);
+    }
+  };
+
   const userName = localStorage.getItem("user_name") || "Employee";
   const userInitial = userName.charAt(0).toUpperCase();
 
@@ -393,10 +507,7 @@ export default function Dashboard() {
               {savedChats.map((chat) => (
                 <div
                   key={chat.id}
-                  onClick={() => {
-                    setActiveChatId(chat.id);
-                    setMessages(chat.messages);
-                  }}
+                  onClick={() => handleSelectChat(chat.id)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium transition-colors ${
                     activeChatId === chat.id
                       ? isDark
@@ -770,13 +881,13 @@ export default function Dashboard() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !isTyping) {
                     e.preventDefault();
-                    handleSend();
+                    handleSendChat();
                   }
                 }}
               />
 
               <button
-                onClick={handleSend}
+                onClick={handleSendChat}
                 disabled={
                   (!input.trim() && selectedFiles.length === 0) || isTyping
                 }

@@ -8,9 +8,16 @@ from app.services.azure_storage import AzureStorageService
 from app.db.models import Document
 from app.schemas.document_schema import DocumentStatus
 from app.utils.logger import log_event
+from app.auth.auth_utils import get_current_user
 azure_service = AzureStorageService()
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
+
+
+def _require_admin(current_user: dict) -> int:
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can access this resource.")
+    return int(current_user["user_id"])
 
 
 # ✅ UPLOAD
@@ -18,9 +25,11 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 def upload_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
+        admin_id = _require_admin(current_user)
         if not file.filename:
             raise HTTPException(status_code=400, detail="invalid filename")
           # ── Duplicate check ──
@@ -45,7 +54,7 @@ def upload_file(
         log_event(
             db,
             actor_type="admin",
-            actor_id=1,
+            actor_id=admin_id,
             action_type="UPLOAD_DOCUMENT",
             description=f"Uploaded {file.filename}"
         )
@@ -61,6 +70,8 @@ def upload_file(
             "status": "uploaded + indexing started"
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -68,7 +79,11 @@ def upload_file(
 
 # ✅ GET DOCUMENTS 
 @router.get("/")
-def get_documents(db: Session = Depends(get_db)):
+def get_documents(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
     docs = db.query(Document).all()
 
     return [
@@ -86,10 +101,12 @@ def get_documents(db: Session = Depends(get_db)):
 def index_document(
     document_id: uuid.UUID,
     background_tasks: BackgroundTasks,
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
     force: bool = False
 ):
     try:
+        _require_admin(current_user)
         doc_id = prepare_indexing(document_id, db, force)
         background_tasks.add_task(perform_indexing, doc_id,force)
 
@@ -103,9 +120,11 @@ def index_document(
 @router.delete("/{document_id}")
 def delete_document_api(
     document_id: uuid.UUID,
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),  # vector_store removed entirely
 ):
     try:
+        _require_admin(current_user)
         return delete_document(document_id=document_id, db=db)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
